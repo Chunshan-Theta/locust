@@ -4,6 +4,7 @@ from locust import User, task, events
 from locust.runners import MasterRunner
 import time
 import logging
+import random
 
 logging.basicConfig(level=logging.INFO)
 
@@ -47,46 +48,48 @@ class SocketIOHealthCheckUser(SocketIOUser):
             body = {
                 "userId": "00001",
                 "action": "test",
-                "log": "200 GET \"something text\" 中文測試"
+                "log": f"200 GET \"something text\" 中文測試 {random.randint(1, 1000)}"
             }
             
             # Emit 'health-check' event
             start_time = time.time()
             self.client.emit("health-check", json.dumps(body))
-            logging.info(f"[SENT] Sent health-check: {body}")
+            logging.debug(f"[SENT] Sent health-check: {body}")
         except Exception as e:
             total_time = int((time.time() - start_time) * 1000)
             logging.error(f"[ERROR] {e}")
             raise e
 
-        try:
-            # Wait for response
-            response = self.client.receive(timeout=5)
-            total_time = int((time.time() - start_time) * 1000)  # Response time in ms
+        while True:
+            try:
+                # Wait for response
+                response = self.client.receive(timeout=5)
+                total_time = int((time.time() - start_time) * 1000)  # Response time in ms
 
-            if response:
-                event_name = response[0]
-                payload = response[1]
-                logging.info(f"[RECEIVED] Event: {event_name}, Data: {payload}")
-                parsed_payload = json.loads(payload)
+                if response:
+                    event_name = response[0]
+                    payload = response[1]
+                    parsed_payload = json.loads(payload)
 
-                
-                # Validate response
-                assert event_name == "re-health-check", "Event name mismatch!"
-                assert parsed_payload["userBody"] == body, "Response payload mismatch!"
-
-                events.request.fire(
-                    request_type="socket.io",
-                    name="health-check",
-                    response_time=total_time,
-                    response_length=len(str(response)),
-                    exception=None
-                )
-            else:
-                raise Exception("No response received from server!")
-        except json.JSONDecodeError as e:
-            logging.error(f"[ERROR] Failed to parse JSON: {e}")
-            raise e
+                    
+                    # Validate response
+                    assert event_name == "re-health-check", "Event name mismatch!"
+                    assert parsed_payload["userBody"] == body, "Response payload mismatch!"
+                    logging.debug(f"[RECEIVED] Event: {event_name}, Data: {payload}")
+                    events.request.fire(
+                        request_type="socket.io",
+                        name="health-check",
+                        response_time=total_time,
+                        response_length=len(str(response)),
+                        exception=None
+                    )
+                    return
+                else:
+                    raise Exception("No response received from server!")
+            except AssertionError as e :
+                pass
+            except json.JSONDecodeError as e:
+                logging.info(f"[Other] Event: {event_name}, Data: {payload}")
 
 
 # Define the test configuration for Locust
