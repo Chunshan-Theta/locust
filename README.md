@@ -2,6 +2,7 @@
 
 ## 簡介
 這個專案使用 Locust 進行 socket.io 負載測試。它包含一個自定義的 Locust 使用者類別 `SocketIOUser`，以及一個具體的測試類別 `SocketIOHealthCheckUser`。
+![image](./docs/locust-result.png)
 
 ## 安裝
 請確保已經安裝了以下依賴：
